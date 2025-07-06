@@ -1,0 +1,11 @@
+using './main.bicep'
+
+param vnetExistingResourceGroupName = 'rg-tf-test-01'
+param vnetExistingName = 'vnet-tf-01'
+param aciSubnetName = 'sn02'
+param privateEndpointSubnetName = 'sn01'
+param aciStorageAccountName = 'stgts053'
+param aciContainerGroupName = 'acigrpts93'
+param tailscaleHostname = 'myTailsContainer'
+param tailscaleAdvertiseRoutes = '10.10.1.0/24'
+param tailscaleAuthKey = 'tskey-auth-kE8dEuRwF721CNTRL-vEHfS1WT1JFVXGQEgUaJFFKXUKaWYRynN'

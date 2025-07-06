@@ -1,0 +1,135 @@
+name: Generate Private-Endpoints ARM Templates
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Bicep/Private-Endpoints/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Bicep/Private-Endpoints/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Setup Azure CLI
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            echo "Azure CLI installed"
+      
+      - name: Install Bicep CLI
+        run: |
+          curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x ./bicep
+          sudo mv ./bicep /usr/local/bin/bicep
+          bicep --version
+      
+      - name: Create ARM Directory
+        run: |
+          mkdir -p ARM/Private-Endpoints
+          echo "Created ARM/Private-Endpoints directory"
+          ls -la ARM/
+      
+      - name: Build Bicep to ARM
+        run: |
+          echo "Building main.bicep to ARM template"
+          bicep build Bicep/Private-Endpoints/main.bicep --outfile ARM/Private-Endpoints/azuredeploy.json
+          
+          if [ -f "ARM/Private-Endpoints/azuredeploy.json" ]; then
+            echo "Successfully built ARM template"
+            ls -la ARM/Private-Endpoints/
+          else
+            echo "Failed to build ARM template"
+            exit 1
+          fi
+      
+      - name: Build Parameters from Bicep
+        run: |
+          echo "Building parameters from main.bicepparam"
+          
+          # Check if the parameter file exists
+          if [ -f "Bicep/Private-Endpoints/main.bicepparam" ]; then
+            echo "Found main.bicepparam file"
+            cat Bicep/Private-Endpoints/main.bicepparam
+            
+            # Build parameters file
+            bicep build-params Bicep/Private-Endpoints/main.bicepparam --outfile ARM/Private-Endpoints/azuredeploy.parameters.json
+            
+            if [ -f "ARM/Private-Endpoints/azuredeploy.parameters.json" ]; then
+              echo "Successfully built parameters file"
+              cat ARM/Private-Endpoints/azuredeploy.parameters.json
+            else
+              echo "Failed to build parameters file"
+            fi
+          else
+            echo "No main.bicepparam file found"
+            ls -la Bicep/Private-Endpoints/
+          fi
+        continue-on-error: true
+      
+      - name: Create Empty Parameters if Build Failed
+        run: |
+          if [ ! -f "ARM/Private-Endpoints/azuredeploy.parameters.json" ]; then
+            echo "Creating empty parameters file as fallback"
+            echo '{"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#", "contentVersion": "1.0.0.0", "parameters": {}}' > ARM/Private-Endpoints/azuredeploy.parameters.json
+          fi
+      
+      - name: Check for Changes
+        id: check_changes
+        run: |
+          git add ARM/Private-Endpoints/azuredeploy.json
+          git add ARM/Private-Endpoints/azuredeploy.parameters.json
+          
+          if git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected"
+          fi
+      
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update ARM templates for Private-Endpoints [skip ci]"
+          title: "🔄 Update Private-Endpoints ARM Templates"
+          body: |
+            ## Auto-generated ARM Template Update
+            
+            This PR was automatically created by the GitHub Actions workflow to update the ARM templates for Private-Endpoints.
+            
+            ### Changes:
+            - Updated `ARM/Private-Endpoints/azuredeploy.json` from Bicep template
+            - Updated `ARM/Private-Endpoints/azuredeploy.parameters.json` from Bicep parameters
+            
+            ### Files Modified:
+            - `ARM/Private-Endpoints/azuredeploy.json`
+            - `ARM/Private-Endpoints/azuredeploy.parameters.json`
+            
+            This PR was generated from changes to the Bicep templates in the `Bicep/Private-Endpoints/` directory.
+            
+            Please review the changes and merge if they look correct.
+          branch: update-pe-arm-templates
+          delete-branch: true
+          base: main
+          
+      - name: Direct Commit (for non-protected branches)
+        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'push' && github.ref != 'refs/heads/main'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git commit -m "Update ARM templates for Private-Endpoints [skip ci]"
+          git push
