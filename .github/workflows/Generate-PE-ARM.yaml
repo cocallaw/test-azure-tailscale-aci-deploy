@@ -27,13 +27,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
       
-      - name: Setup Azure CLI
-        uses: azure/CLI@v2
-        with:
-          azcliversion: latest
-          inlineScript: |
-            echo "Azure CLI installed"
-      
       - name: Install Bicep CLI
         run: |
           curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
