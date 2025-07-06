@@ -9,6 +9,11 @@ on:
     branches: [ main ]
     paths:
       - 'Bicep/Private-Endpoints/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   build:
@@ -20,10 +25,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          persist-credentials: true
       
       - name: Setup Azure CLI
-        uses: azure/CLI@v1
+        uses: azure/CLI@v2
         with:
+          azcliversion: latest
           inlineScript: |
             echo "Azure CLI installed"
       
@@ -124,6 +131,8 @@ jobs:
           branch: update-pe-arm-templates
           delete-branch: true
           base: main
+          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
           
       - name: Direct Commit (for non-protected branches)
         if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'push' && github.ref != 'refs/heads/main'
